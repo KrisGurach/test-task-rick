@@ -1,101 +1,224 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import CharacterCard from "./components/CharacterCard";
+import CharacterPopup from "./components/CharacterPopup";
+import mainApi from "./apiService";
+
+const initialFilters = {
+  name: "",
+  status: "",
+  species: "",
+  gender: "",
+  episode: "",
+};
+
+const ITEMS_PER_PAGE = 10;
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [filters, setFilters] = useState(() => {
+    const savedFilters = localStorage.getItem("filters");
+    return savedFilters ? JSON.parse(savedFilters) : initialFilters;
+  });
+  const [episodes, setEpisodes] = useState([]);
+  const [characters, setCharacters] = useState([]);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    useEffect(() => {
+    const fetchCharacters = async () => {
+      let data = {};
+      
+      try {
+        data = await mainApi.getFilteredCharacters(filters);
+      } catch (errorCode) {
+        if (errorCode !== 404) {
+          console.error("Ошибка при получении персонажей:", error);
+        }
+      }
+
+      return data;
+    };
+
+    const timerId = setTimeout(async () => {
+      let allCharacters = await fetchCharacters();
+
+      if (filters.episode) {
+
+      }
+
+      setCharacters(allCharacters?.results ?? []);
+      setCurrentPage(1);
+    }, 300);
+
+    return () => clearTimeout(timerId);
+  }, [filters]);
+
+  useEffect(() => {
+    const fetchAllEpisodes = async () => {
+      const episodes = await mainApi.getAllEpisodes();
+      setEpisodes(episodes);
+    };
+
+    if (episodes.length === 0) {
+      fetchAllEpisodes();
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("filters", JSON.stringify(filters));
+  }, [filters]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [name]: value,
+    }));
+  };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [name]: value,
+    }));
+  };
+
+  const handleCardClick = (character) => {
+    setSelectedCharacter(character);
+  };
+
+  const handleEscapeKey = (event) => {
+    if (event.key === "Escape") {
+      setSelectedCharacter(null);
+    }
+  };
+
+  const handleOverlayClick = (event) => {
+    if (event.target.classList.contains("overlay")) {
+      setSelectedCharacter(null);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleEscapeKey);
+    return () => {
+      window.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, []);
+
+  const totalCharacters = characters.length;
+  const totalPages = Math.ceil(totalCharacters / ITEMS_PER_PAGE);
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentCharacters = characters.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
+  );
+
+  return (
+    <div className="bg-black p-10">
+      <div className="bg-black text-white min-h-screen p-4 border-2 border-white rounded-[16px]">
+        <h1 className="text-3xl font-bold mb-4">Вселенная Рик и Морти</h1>
+        <div className="mb-4 grid grid-cols-1 gap-4">
+          <input
+            name="name"
+            className="bg-black text-white border border-gray-600 placeholder-white p-2 rounded-[8px] mb-2 w-full"
+            placeholder="Имя персонажа"
+            value={filters.name}
+            onChange={handleInputChange}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <select
+              name="status"
+              className="bg-black text-white border border-gray-600 p-2 rounded-[8px] mb-2 w-full"
+              value={filters.status}
+              onChange={handleFilterChange}
+            >
+              <option value="">Жив?</option>
+              <option value="alive">Жив</option>
+              <option value="dead">Мёртв</option>
+              <option value="unknown">Неизвестно</option>
+            </select>
+            <select
+              name="species"
+              className="bg-black text-white border border-gray-600 p-2 rounded-[8px] mb-2 w-full"
+              value={filters.species}
+              onChange={handleFilterChange}
+            >
+              <option value="">Раса</option>
+              <option value="Human">Человек</option>
+              <option value="Alien">Инопланетянин</option>
+              <option value="Humanoid">Гуманоид</option>
+              <option value="Animal">Животное</option>
+              <option value="Robot">Робот</option>
+              <option value="Mythological Creature">Мифологическое существо</option>
+              
+            </select>
+          </div>
+
+          <select
+            name="gender"
+            className="bg-black text-white border border-gray-600 p-2 rounded-[8px] mb-2 w-full"
+            value={filters.gender}
+            onChange={handleFilterChange}
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <option value="">Пол</option>
+            <option value="Female">Женский</option>
+            <option value="Male">Мужской</option>
+            <option value="Genderless">Без половой принадлежности</option>
+            <option value="unknown">Неизвестно</option>
+          </select>
+
+          <input
+            name="episode"
+            className="bg-black text-white border border-gray-600 placeholder-white p-2 rounded-[8px] mb-2 w-full"
+            placeholder="Эпизод (S00E00)"
+            value={filters.episode}
+            onChange={handleInputChange}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="grid grid-cols-1 gap-4">
+          <p>Найдено {totalCharacters} персонажей</p>
+
+          {currentCharacters.map((character) => (
+            <CharacterCard
+              key={character.id}
+              character={character}
+              onClick={handleCardClick}
+            />
+          ))}
+        </div>
+
+        <div className="flex justify-between mt-4">
+          {currentPage > 1 && (
+            <button
+              className="bg-gray-700 text-white p-2 rounded"
+              onClick={() => setCurrentPage((page) => page - 1)}
+            >
+              Назад
+            </button>
+          )}
+          {currentPage < totalPages && (
+            <button
+              className="bg-gray-700 text-white p-2 rounded"
+              onClick={() => setCurrentPage((page) => page + 1)}
+            >
+              Дальше
+            </button>
+          )}
+        </div>
+
+        {selectedCharacter && (
+          <CharacterPopup
+            character={selectedCharacter}
+            onClose={() => setSelectedCharacter(null)}
+            handleOverlayClick={handleOverlayClick}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+      </div>
     </div>
   );
 }
