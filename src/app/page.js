@@ -19,7 +19,10 @@ const ITEMS_PER_PAGE = 10;
 export default function Home() {
   //#region states 
   const [filters, setFilters] = useState(() => {
-    const savedFilters = localStorage.getItem("filters");
+    let savedFilters = {};
+    if (typeof window !== "undefined") {
+      savedFilters = localStorage.getItem("filters");
+    }
     return savedFilters ? JSON.parse(savedFilters) : initialFilters;
   });
   const [episodes, setEpisodes] = useState([]); // все эпизоды
@@ -105,8 +108,6 @@ export default function Home() {
       console.error(`Ошибка при получении персонажей: ${error}`);
       return [];
     }
-
-    
   };
 
   const searchCharacters = async () => {
@@ -129,12 +130,7 @@ export default function Home() {
     }, 300);
 
     return () => clearTimeout(timerId);
-  }, [filters.name]);
-
-  // изменение полей поиска персонажа. немедленный запрос
-  useEffect(() => {
-    searchCharacters();
-  }, [filters.status, filters.species, filters.gender, episodes]);
+  }, [filters.name, filters.status, filters.species, filters.gender, episodes]);
 
   // изменение полей поиска эпизода
   useEffect(() => {
@@ -148,7 +144,9 @@ export default function Home() {
 
   // извлечение фильтров из localStorage
   useEffect(() => {
-    localStorage.setItem("filters", JSON.stringify(filters));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("filters", JSON.stringify(filters));
+    }
   }, [filters]);
 
   // keydown listener
