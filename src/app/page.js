@@ -19,11 +19,11 @@ const ITEMS_PER_PAGE = 10;
 export default function Home() {
   //#region states 
   const [filters, setFilters] = useState(() => {
-    let savedFilters = {};
     if (typeof window !== "undefined") {
-      savedFilters = localStorage.getItem("filters");
+      const savedFilters = localStorage.getItem("filters");
+      return savedFilters ? JSON.parse(savedFilters) : initialFilters;
     }
-    return savedFilters ? JSON.parse(savedFilters) : initialFilters;
+    return initialFilters;
   });
   const [episodes, setEpisodes] = useState([]); // все эпизоды
   const [charactersBySearch, setCharactersBySearch] = useState([]); // персонажи по результатам поиска по фильтрам (не эпизодам)
