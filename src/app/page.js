@@ -140,14 +140,14 @@ export default function Home() {
     setSelectedCharacter(character);
   };
 
-  const handleEscapeKey = (event) => {
-    if (event.key === "Escape") {
+  const handleOverlayClick = (event) => {
+    if (event.target.classList.contains("overlay")) {
       setSelectedCharacter(null);
     }
   };
 
-  const handleOverlayClick = (event) => {
-    if (event.target.classList.contains("overlay")) {
+  const handleEscapeKey = (event) => {
+    if (event.key === "Escape") {
       setSelectedCharacter(null);
     }
   };
@@ -169,9 +169,9 @@ export default function Home() {
   );
 
   return (
-    <div className="bg-black p-10">
-      <div className="bg-black text-white min-h-screen p-4 border-2 border-white rounded-[16px]">
-        <h1 className="text-3xl font-bold mb-4">Вселенная Рик и Морти</h1>
+    <div className="bg-black p-10 flex justify-center">
+      <div className="bg-black text-white min-h-screen p-4 border-2 border-white rounded-[16px] max-w-[940px] w-full">
+        <h1 className="text-3xl 2xl:text-4xl font-bold mb-4">Вселенная Рик и Морти</h1>
         <div className="mb-4 grid grid-cols-1 gap-4">
           <input
             name="name"
