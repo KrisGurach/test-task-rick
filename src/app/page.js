@@ -23,11 +23,12 @@ export default function Home() {
   const [characters, setCharacters] = useState([]);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [charactersBySearch, setCharactersBySearch] = useState([]);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchCharacters = async () => {
       let data = {};
-      
+
       try {
         data = await mainApi.getFilteredCharacters(filters);
       } catch (errorCode) {
@@ -40,29 +41,80 @@ export default function Home() {
     };
 
     const timerId = setTimeout(async () => {
-      let allCharacters = await fetchCharacters();
+      const data = await fetchCharacters();
+      let characters = data.results;
+
+      setCharactersBySearch(characters ?? []);
 
       if (filters.episode) {
-
+        characters = filterByEpisode(characters);
       }
 
-      setCharacters(allCharacters?.results ?? []);
+      setCharacters(characters ?? []);
       setCurrentPage(1);
     }, 300);
 
     return () => clearTimeout(timerId);
-  }, [filters]);
+  }, [filters.name, filters.status, filters.species, filters.gender, episodes]);
+
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      const filtered = filterByEpisode(charactersBySearch);
+      setCharacters(filtered ?? []);
+    }, 300);
+
+    return () => clearTimeout(timerId);
+  }, [filters.episode]);
+
+  const filterByEpisode = (characters) => {
+    if (!characters) {
+      return;
+    }
+
+    const episodeIds = episodes
+      .filter((e) => e.episode.toUpperCase() === filters.episode.toUpperCase())
+      .map((e) => e.id);
+
+    characters = characters.filter((ch) => {
+      const characterEpisodeIds = ch.episode.map((e) => getIdFromUrl(e));
+      return characterEpisodeIds.includes(episodeIds[0]);
+    });
+
+    return characters;
+  };
 
   useEffect(() => {
     const fetchAllEpisodes = async () => {
-      const episodes = await mainApi.getAllEpisodes();
-      setEpisodes(episodes);
+      const initialPageNumber = 1;
+      const episodesInfo = await mainApi.getEpisodesForPage(initialPageNumber);
+
+      const pageCount = episodesInfo.info.pages;
+      const requests = [];
+
+      for (let i = initialPageNumber; i <= pageCount; i++) {
+        const request = formRequest(i);
+        requests.push(request);
+      }
+
+      const results = await Promise.all(requests);
+      const allEpisodes = results.map((r) => r.results).flat();
+
+      return allEpisodes;
     };
 
     if (episodes.length === 0) {
-      fetchAllEpisodes();
+      fetchAllEpisodes().then((allEpisodes) => setEpisodes(allEpisodes));
     }
   }, []);
+
+  const formRequest = (pageNumber) => {
+    return mainApi.getEpisodesForPage(pageNumber);
+  };
+
+  function getIdFromUrl(str) {
+    const match = str.match(/\/([^\/]*)$/);
+    return match ? Number(match[1]) : Number(str);
+  }
 
   useEffect(() => {
     localStorage.setItem("filters", JSON.stringify(filters));
@@ -153,8 +205,9 @@ export default function Home() {
               <option value="Humanoid">Гуманоид</option>
               <option value="Animal">Животное</option>
               <option value="Robot">Робот</option>
-              <option value="Mythological Creature">Мифологическое существо</option>
-              
+              <option value="Mythological Creature">
+                Мифологическое существо
+              </option>
             </select>
           </div>
 

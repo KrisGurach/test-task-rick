@@ -19,8 +19,8 @@ class MainApi {
         return this._getResponseData(res);
     };
 
-    getAllEpisodes = async () => {
-        const res = await fetch(`${this._baseUrl}/episode`);
+    getEpisodesForPage = async (page) => {
+        const res = await fetch(`${this._baseUrl}/episode?page=${page}`);
         return this._getResponseData(res);
     }
 }
