@@ -34,29 +34,36 @@ export default function Home() {
     const fetchAllEpisodes = async () => {
       const initialPageNumber = 1;
       
-      const episodesFirstPage = await mainApi.getEpisodesForPage({
-        page: initialPageNumber,
-      });
-
-      const pageCount = episodesFirstPage.info.pages;
+      let episodesFirstPage = [];
       
-      // запрашиваем результаты по оставшимся страницам
-      const requests = RequestHelper.formRequestsWithPage(
-        mainApi.getEpisodesForPage,
-        {},
-        initialPageNumber + 1,
-        pageCount
-      );
-
-      const results = await Promise.all(requests);
-
-      // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
-      const allEpisodes = [
-        ...episodesFirstPage.results,
-        ...results.flatMap(r => r.results)
-      ];
-
-      return allEpisodes;
+      try {
+        episodesFirstPage = await mainApi.getEpisodesForPage({
+          page: initialPageNumber,
+        });
+  
+        const pageCount = episodesFirstPage.info.pages;
+        
+        // запрашиваем результаты по оставшимся страницам
+        const requests = RequestHelper.formRequestsWithPage(
+          mainApi.getEpisodesForPage,
+          {},
+          initialPageNumber + 1,
+          pageCount
+        );
+  
+        const results = await Promise.all(requests);
+  
+        // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
+        const allEpisodes = [
+          ...episodesFirstPage.results,
+          ...results.flatMap(r => r.results)
+        ];
+  
+        return allEpisodes;
+      } catch (error) {
+        console.error(`Ошибка при получении эпизодов: ${error}`)
+        return [];
+      }
     };
 
     if (episodes.length === 0) {
@@ -74,32 +81,32 @@ export default function Home() {
         props: filters,
         page: initialPageNumber,
       });
-    } catch (errorCode) {
-      if (errorCode !== 404) {
-        console.error("Ошибка при получении персонажей:", error);
-      }
+
+      const pageCount = charactersFirstPage.info.pages;
+
+      // запрашиваем результаты по оставшимся страницам
+      const requests = RequestHelper.formRequestsWithPage(
+        mainApi.getFilteredCharacters,
+        filters,
+        initialPageNumber + 1,
+        pageCount
+      );
+
+      const results = await Promise.all(requests);
+
+      // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
+      const filteredCharacters = [
+        ...charactersFirstPage.results,
+        ...results.flatMap((r) => r.results),
+      ];
+
+      return filteredCharacters;
+    } catch (error) {
+      console.error(`Ошибка при получении персонажей: ${error}`);
       return [];
     }
 
-    const pageCount = charactersFirstPage.info.pages;
-
-    // запрашиваем результаты по оставшимся страницам
-    const requests = RequestHelper.formRequestsWithPage(
-      mainApi.getFilteredCharacters,
-      filters,
-      initialPageNumber + 1,
-      pageCount
-    );
-
-    const results = await Promise.all(requests);
-
-     // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
-     const filteredCharacters = [
-      ...charactersFirstPage.results,
-      ...results.flatMap(r => r.results)
-    ];
-
-    return filteredCharacters;
+    
   };
 
   const searchCharacters = async () => {
