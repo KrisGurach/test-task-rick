@@ -3,7 +3,7 @@ export default function CharacterPopup({ character, onClose, handleOverlayClick 
         <div 
           onClick={handleOverlayClick}
           className="overlay fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-black p-6 rounded-lg shadow-lg border-2 border-white rounded-[16px]">
+            <div className="bg-black p-6 rounded-lg border-2 border-white shadow-lg max-w-[90%] max-h-[80vh] overflow-auto">
                 <h2 className="text-xl font-bold mb-2">{character.name}</h2>
                 <p className="mb-2">Статус: {character.status}</p>
                 <p className="mb-2">Раса: {character.species}</p>

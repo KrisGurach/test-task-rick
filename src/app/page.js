@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import CharacterCard from "./components/CharacterCard";
 import CharacterPopup from "./components/CharacterPopup";
 import mainApi from "./apiService";
+import { RequestHelper } from "./helpers/requestHelper";
+import { FilterHelper } from "./helpers/filterHelper";
 
 const initialFilters = {
   name: "",
@@ -15,89 +17,44 @@ const initialFilters = {
 const ITEMS_PER_PAGE = 10;
 
 export default function Home() {
+  //#region states 
   const [filters, setFilters] = useState(() => {
     const savedFilters = localStorage.getItem("filters");
     return savedFilters ? JSON.parse(savedFilters) : initialFilters;
   });
-  const [episodes, setEpisodes] = useState([]);
-  const [characters, setCharacters] = useState([]);
+  const [episodes, setEpisodes] = useState([]); // все эпизоды
+  const [charactersBySearch, setCharactersBySearch] = useState([]); // персонажи по результатам поиска по фильтрам (не эпизодам)
+  const [characters, setCharacters] = useState([]); // персонажи для отображения (с учетом всех фильтров)
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [charactersBySearch, setCharactersBySearch] = useState([]);
+  //#endregion
 
-  useEffect(() => {
-    const fetchCharacters = async () => {
-      let data = {};
-
-      try {
-        data = await mainApi.getFilteredCharacters(filters);
-      } catch (errorCode) {
-        if (errorCode !== 404) {
-          console.error("Ошибка при получении персонажей:", error);
-        }
-      }
-
-      return data;
-    };
-
-    const timerId = setTimeout(async () => {
-      const data = await fetchCharacters();
-      let characters = data.results;
-
-      setCharactersBySearch(characters ?? []);
-
-      if (filters.episode) {
-        characters = filterByEpisode(characters);
-      }
-
-      setCharacters(characters ?? []);
-      setCurrentPage(1);
-    }, 300);
-
-    return () => clearTimeout(timerId);
-  }, [filters.name, filters.status, filters.species, filters.gender, episodes]);
-
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      const filtered = filterByEpisode(charactersBySearch);
-      setCharacters(filtered ?? []);
-    }, 300);
-
-    return () => clearTimeout(timerId);
-  }, [filters.episode]);
-
-  const filterByEpisode = (characters) => {
-    if (!characters) {
-      return;
-    }
-
-    const episodeIds = episodes
-      .filter((e) => e.episode.toUpperCase() === filters.episode.toUpperCase())
-      .map((e) => e.id);
-
-    characters = characters.filter((ch) => {
-      const characterEpisodeIds = ch.episode.map((e) => getIdFromUrl(e));
-      return characterEpisodeIds.includes(episodeIds[0]);
-    });
-
-    return characters;
-  };
-
+  // all episodes
   useEffect(() => {
     const fetchAllEpisodes = async () => {
       const initialPageNumber = 1;
-      const episodesInfo = await mainApi.getEpisodesForPage(initialPageNumber);
+      
+      const episodesFirstPage = await mainApi.getEpisodesForPage({
+        page: initialPageNumber,
+      });
 
-      const pageCount = episodesInfo.info.pages;
-      const requests = [];
-
-      for (let i = initialPageNumber; i <= pageCount; i++) {
-        const request = formRequest(i);
-        requests.push(request);
-      }
+      const pageCount = episodesFirstPage.info.pages;
+      
+      // запрашиваем результаты по оставшимся страницам
+      const requests = RequestHelper.formRequestsWithPage(
+        mainApi.getEpisodesForPage,
+        {},
+        initialPageNumber + 1,
+        pageCount
+      );
 
       const results = await Promise.all(requests);
-      const allEpisodes = results.map((r) => r.results).flat();
+
+      // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
+      const allEpisodes = [
+        ...episodesFirstPage.results,
+        ...results.flatMap(r => r.results)
+      ];
 
       return allEpisodes;
     };
@@ -107,19 +64,95 @@ export default function Home() {
     }
   }, []);
 
-  const formRequest = (pageNumber) => {
-    return mainApi.getEpisodesForPage(pageNumber);
+  const fetchCharacters = async () => {
+    const initialPageNumber = 1;
+
+    let charactersFirstPage = {};
+
+    try {
+      charactersFirstPage = await mainApi.getFilteredCharacters({
+        props: filters,
+        page: initialPageNumber,
+      });
+    } catch (errorCode) {
+      if (errorCode !== 404) {
+        console.error("Ошибка при получении персонажей:", error);
+      }
+      return [];
+    }
+
+    const pageCount = charactersFirstPage.info.pages;
+
+    // запрашиваем результаты по оставшимся страницам
+    const requests = RequestHelper.formRequestsWithPage(
+      mainApi.getFilteredCharacters,
+      filters,
+      initialPageNumber + 1,
+      pageCount
+    );
+
+    const results = await Promise.all(requests);
+
+     // объединяем результаты первой страницы с оставшимимся (чтобы не делать лишний запрос)
+     const filteredCharacters = [
+      ...charactersFirstPage.results,
+      ...results.flatMap(r => r.results)
+    ];
+
+    return filteredCharacters;
   };
 
-  function getIdFromUrl(str) {
-    const match = str.match(/\/([^\/]*)$/);
-    return match ? Number(match[1]) : Number(str);
-  }
+  const searchCharacters = async () => {
+    let characters = await fetchCharacters();
 
+    setCharactersBySearch(characters ?? []);
+
+    if (filters.episode) {
+      characters = FilterHelper.filterByEpisode(characters, episodes, filters.episode);
+    }
+
+    setCharacters(characters ?? []);
+    setCurrentPage(1);
+  };
+
+  // изменение полей поиска персонажа. отложенный запрос
+  useEffect(() => {
+    const timerId = setTimeout(async () => {
+      searchCharacters();
+    }, 300);
+
+    return () => clearTimeout(timerId);
+  }, [filters.name]);
+
+  // изменение полей поиска персонажа. немедленный запрос
+  useEffect(() => {
+    searchCharacters();
+  }, [filters.status, filters.species, filters.gender, episodes]);
+
+  // изменение полей поиска эпизода
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      const filtered = FilterHelper.filterByEpisode(charactersBySearch, episodes, filters.episode);
+      setCharacters(filtered ?? []);
+    }, 300);
+
+    return () => clearTimeout(timerId);
+  }, [filters.episode]);
+
+  // извлечение фильтров из localStorage
   useEffect(() => {
     localStorage.setItem("filters", JSON.stringify(filters));
   }, [filters]);
 
+  // keydown listener
+  useEffect(() => {
+    window.addEventListener("keydown", handleEscapeKey);
+    return () => {
+      window.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, []);
+
+  //#region handlers
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFilters((prevFilters) => ({
@@ -140,24 +173,18 @@ export default function Home() {
     setSelectedCharacter(character);
   };
 
-  const handleOverlayClick = (event) => {
-    if (event.target.classList.contains("overlay")) {
-      setSelectedCharacter(null);
-    }
-  };
-
   const handleEscapeKey = (event) => {
     if (event.key === "Escape") {
       setSelectedCharacter(null);
     }
   };
 
-  useEffect(() => {
-    window.addEventListener("keydown", handleEscapeKey);
-    return () => {
-      window.removeEventListener("keydown", handleEscapeKey);
-    };
-  }, []);
+  const handleOverlayClick = (event) => {
+    if (event.target.classList.contains("overlay")) {
+      setSelectedCharacter(null);
+    }
+  };
+  //#endregion
 
   const totalCharacters = characters.length;
   const totalPages = Math.ceil(totalCharacters / ITEMS_PER_PAGE);
