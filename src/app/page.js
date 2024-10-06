@@ -171,7 +171,9 @@ export default function Home() {
   return (
     <div className="bg-black p-10 flex justify-center">
       <div className="bg-black text-white min-h-screen p-4 border-2 border-white rounded-[16px] max-w-[940px] w-full">
-        <h1 className="text-3xl 2xl:text-4xl font-bold mb-4">Вселенная Рик и Морти</h1>
+        <h1 className="text-3xl 2xl:text-4xl font-bold mb-4">
+          Вселенная Рик и Морти
+        </h1>
         <div className="mb-4 grid grid-cols-1 gap-4">
           <input
             name="name"
@@ -246,22 +248,29 @@ export default function Home() {
         </div>
 
         <div className="flex justify-between mt-4">
-          {currentPage > 1 && (
-            <button
-              className="bg-gray-700 text-white p-2 rounded"
-              onClick={() => setCurrentPage((page) => page - 1)}
-            >
-              Назад
-            </button>
-          )}
-          {currentPage < totalPages && (
-            <button
-              className="bg-gray-700 text-white p-2 rounded"
-              onClick={() => setCurrentPage((page) => page + 1)}
-            >
-              Дальше
-            </button>
-          )}
+          <button
+            className={`bg-gray-700 text-white p-2 rounded ${
+              currentPage === 1 ? "opacity-50" : ""
+            }`}
+            onClick={() =>
+              currentPage > 1 && setCurrentPage((page) => page - 1)
+            }
+            disabled={currentPage === 1}
+          >
+            Назад
+          </button>
+
+          <button
+            className={`bg-gray-700 text-white p-2 rounded ${
+              currentPage === totalPages ? "opacity-50" : ""
+            }`}
+            onClick={() =>
+              currentPage < totalPages && setCurrentPage((page) => page + 1)
+            }
+            disabled={currentPage === totalPages}
+          >
+            Дальше
+          </button>
         </div>
 
         {selectedCharacter && (
